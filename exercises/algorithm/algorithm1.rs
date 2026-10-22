@@ -2,7 +2,6 @@
 	single linked list merge
 	This problem requires you to merge two ordered singly linked lists into one ordered singly linked list
 */
-// I AM NOT DONE
 
 use std::fmt::{self, Display, Formatter};
 use std::ptr::NonNull;
@@ -69,15 +68,54 @@ impl<T> LinkedList<T> {
             },
         }
     }
-	pub fn merge(list_a:LinkedList<T>,list_b:LinkedList<T>) -> Self
-	{
-		//TODO
-		Self {
-            length: 0,
-            start: None,
-            end: None,
+    pub fn merge(mut list_a: LinkedList<T>, mut list_b: LinkedList<T>) -> Self
+    where
+        T: Ord,
+    {
+        let mut merged = Self::new();
+        while list_a.start.is_some() || list_b.start.is_some() {
+            let source = match (list_a.start, list_b.start) {
+                (Some(a), Some(b)) => {
+                    // Both pointers refer to nodes owned by the input lists.
+                    if unsafe { a.as_ref().val <= b.as_ref().val } {
+                        &mut list_a
+                    } else {
+                        &mut list_b
+                    }
+                }
+                (Some(_), None) => &mut list_a,
+                (None, Some(_)) => &mut list_b,
+                (None, None) => unreachable!(),
+            };
+            let mut node = source.start.take().unwrap();
+            // Transfer ownership of this node to the result before linking it.
+            unsafe {
+                source.start = node.as_ref().next;
+                node.as_mut().next = None;
+            }
+            source.length -= 1;
+            if source.start.is_none() {
+                source.end = None;
+            }
+            match merged.end {
+                Some(mut tail) => unsafe { tail.as_mut().next = Some(node) },
+                None => merged.start = Some(node),
+            }
+            merged.end = Some(node);
+            merged.length += 1;
         }
-	}
+        merged
+    }
+}
+
+impl<T> Drop for LinkedList<T> {
+    fn drop(&mut self) {
+        while let Some(node) = self.start {
+            // Each node was allocated by Box::into_raw and is freed once here.
+            let node = unsafe { Box::from_raw(node.as_ptr()) };
+            self.start = node.next;
+        }
+    }
 }
 
 impl<T> Display for LinkedList<T>
